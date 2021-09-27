@@ -11,6 +11,8 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
+use work.ilt_pkg.all;
+
 entity ilt is
   generic (
     PADDR_WIDTH : integer := 32;
@@ -33,46 +35,63 @@ entity ilt is
     test_b  : out std_logic);
 end entity ilt;
 
-architecture rtl of ilt is
-  type apb_state_t is (APB_IDLE_ST, APB_SETUP_ST, APB_ACCESS_ST);
-  signal apb_state : apb_state_t := APB_IDLE_ST;
-  signal apb_next  : apb_state_t;
+architecture struct of ilt is
+
+  signal apb_o_dat : std_logic_vector(PDATA_WIDTH-1 downto 0);
+
+  signal gen_mode : std_logic_vector(1 downto 0) := "00";
+  signal enable   : std_logic := '0';
+
+  signal frt_cnt_l : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal frt_cnt_h : std_logic_vector(PDATA_WIDTH-1 downto 0);
+
+  signal r_d0 : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal r_d1 : std_logic_vector(PDATA_WIDTH-1 downto 0);  -- RFU
+  signal r_d2 : std_logic_vector(PDATA_WIDTH-1 downto 0);  -- RFU
+  signal r_d3 : std_logic_vector(PDATA_WIDTH-1 downto 0);  -- RFU
+
+  signal latch0 : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal latch1 : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal latch2 : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal latch3 : std_logic_vector(PDATA_WIDTH-1 downto 0);
+
+  signal l_busy : std_logic_vector(3 downto 0);
+  signal l_ovfl : std_logic_vector(3 downto 0);
+
+  signal ack0_mcnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal ack3_mcnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
+
+  type ilt_state_t is (ILT_IDLE_ST, ILT_DELAY_ST, ILT_ACTIVE_ST, ILT_ACK3_ST);
+  signal ilt_state : ilt_state_t := ILT_IDLE_ST;
+  signal ilt_next : ilt_state_t;
+
+  signal d_cnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal l_cnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
+
+  signal rstn : std_logic;
+
 begin
 
   irq <= '0';
   test_a <= '0';
   test_b <= '0';
 
-  pslverr <= '0';
+  u0: component ilt_apb
+    generic map (
+      PADDR_WIDTH => PADDR_WIDTH,
+      PDATA_WIDTH => PDATA_WIDTH)
+    port map (
+      pclk => pclk,
+      presetn => presetn,
+      paddr => paddr,
+      pselx => pselx,
+      penable => penable,
+      pwrite => pwrite,
+      pwdata => pwdata,
+      pready => pready,
+      prdata => prdata,
+      pslverr => pslverr,
 
-  prdata <= CORE_ID;
+      core_id => CORE_ID);
 
-  process (pclk, presetn) is
-  begin
-    if presetn = '0' then
-      apb_state <= APB_IDLE_ST;
-    elsif rising_edge(pclk) then
-      apb_state <= apb_next;
-    end if;
-  end process;
-
-  process (apb_state, pselx, penable) is
-  begin
-    apb_next <= APB_IDLE_ST;
-    pready <= '0';
-
-    case apb_state is
-      when APB_IDLE_ST =>
-        if pselx = '1' then
-          apb_next <= APB_SETUP_ST;
-        end if;
-
-      when APB_SETUP_ST =>
-        apb_next <= APB_IDLE_ST;
-        pready <= '1';
-
-      when others => null;
-    end case;
-  end process;
-
-end architecture rtl;
+end architecture struct;
