@@ -37,13 +37,21 @@ end entity ilt;
 
 architecture struct of ilt is
 
-  signal apb_o_dat : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal mctrl_w : std_logic;
+  signal mctrl_data : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal mctrl_rd_data : std_logic_vector(PDATA_WIDTH-1 downto 0);
 
   signal gen_mode : std_logic_vector(1 downto 0) := "00";
   signal enable   : std_logic := '0';
 
+  signal frt_latch : std_logic;
+  signal frt_latch_clear : std_logic;
+  signal frt_latch_l_valid, frt_latch_l_ovwr : std_logic;
+  signal frt_latch_h_valid, frt_latch_h_ovwr : std_logic;
   signal frt_cnt_l : std_logic_vector(PDATA_WIDTH-1 downto 0);
   signal frt_cnt_h : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal frt_latch_l : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal frt_latch_h : std_logic_vector(PDATA_WIDTH-1 downto 0);
 
   signal r_d0 : std_logic_vector(PDATA_WIDTH-1 downto 0);
   signal r_d1 : std_logic_vector(PDATA_WIDTH-1 downto 0);  -- RFU
@@ -68,13 +76,15 @@ architecture struct of ilt is
   signal d_cnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
   signal l_cnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
 
-  signal rstn : std_logic;
+  signal nrst : std_logic;
 
 begin
 
   irq <= '0';
-  test_a <= '0';
-  test_b <= '0';
+  -- test_a <= '0';
+  -- test_b <= '0';
+  test_a <= gen_mode(0);
+  test_b <= gen_mode(1);
 
   u0: component ilt_apb
     generic map (
@@ -92,6 +102,68 @@ begin
       prdata => prdata,
       pslverr => pslverr,
 
-      core_id => CORE_ID);
+      mctrl_w => mctrl_w,
+      mctrl_data =>mctrl_rd_data,
+
+      core_id => CORE_ID,
+
+      frt_latch_h => frt_latch_h,
+      frt_latch_l => frt_latch_l,
+
+      d_w => open,
+      d_data => (others => (others => '0'))
+      );
+
+  u1: component ilt_register
+    port map (
+      clk  => pclk,
+      nrst => presetn,
+      wr   => mctrl_w,
+      d    => pwdata,
+      q    => mctrl_data);
+
+  enable <= mctrl_data(PDATA_WIDTH-1);
+  nrst <= presetn and enable;
+
+  gen_mode <= mctrl_data(1 downto 0);
+
+  mctrl_rd_data <= enable & "000" &
+                   frt_latch_h_ovwr & frt_latch_l_ovwr &
+                   frt_latch_h_valid & frt_latch_l_valid &
+                   "00000000" &
+                   "00000000" &
+                   "000000" & gen_mode;
+
+  u2: component ilt_frt
+    port map (
+      clk   => pclk,
+      nrst  => nrst,
+      cnt_h => frt_cnt_h,
+      cnt_l => frt_cnt_l);
+
+  frt_latch       <= pwdata(24) and mctrl_w;
+  frt_latch_clear <= pwdata(25) and mctrl_w;
+
+  u3: component ilt_latch
+    port map (
+      clk   => pclk,
+      nrst  => nrst,
+      clr   => frt_latch_clear,
+      latch => frt_latch,
+      d     => frt_cnt_h,
+      q     => frt_latch_h,
+      valid => frt_latch_h_valid,
+      ovwr  => frt_latch_h_ovwr);
+
+  u4: component ilt_latch
+    port map (
+      clk   => pclk,
+      nrst  => nrst,
+      clr   => frt_latch_clear,
+      latch => frt_latch,
+      d     => frt_cnt_l,
+      q     => frt_latch_l,
+      valid => frt_latch_l_valid,
+      ovwr  => frt_latch_l_ovwr);
 
 end architecture struct;
