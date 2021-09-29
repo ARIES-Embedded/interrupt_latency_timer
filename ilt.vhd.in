@@ -15,8 +15,8 @@ use work.ilt_pkg.all;
 
 entity ilt is
   generic (
-    PADDR_WIDTH : integer := PADDR_WIDTH;
-    PDATA_WIDTH : integer := PDATA_WIDTH
+    PADDR_WIDTH : integer := 32;
+    PDATA_WIDTH : integer := 32
     );
   port (
     pclk    : in  std_logic;
