@@ -29,7 +29,18 @@ entity ilt_apb is
     d_data : in  reg_block_t(3 downto 0);
 
     frt_latch_l : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
-    frt_latch_h : in  std_logic_vector(PDATA_WIDTH-1 downto 0)
+    frt_latch_h : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
+    frt_latch_l_r : out std_logic;
+    frt_latch_h_r : out std_logic;
+
+    ack_w        : out std_logic;
+    latch_status : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
+    irq_count    : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
+    ack0_miss    : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
+    ack3_miss    : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
+
+    latchx   : in  reg_block_t(0 to 3);
+    latchx_r : out std_logic_vector(3 downto 0)
     );
 
 end entity ilt_apb;
@@ -112,6 +123,14 @@ begin
           when "0101" => apb_rdata <= d_data(1);
           when "0110" => apb_rdata <= d_data(2);
           when "0111" => apb_rdata <= d_data(3);
+          when "1000" => apb_rdata <= latch_status;
+          when "1001" => apb_rdata <= irq_count;
+          when "1010" => apb_rdata <= ack0_miss;
+          when "1011" => apb_rdata <= ack3_miss;
+          when "1100" => apb_rdata <= latchx(0);
+          when "1101" => apb_rdata <= latchx(1);
+          when "1110" => apb_rdata <= latchx(2);
+          when "1111" => apb_rdata <= latchx(3);
           when others => apb_rdata <= (others => '0');
         end case;
       end if;
@@ -120,10 +139,31 @@ begin
 
   prdata <= apb_rdata;
 
+  -- Read strobes
+  process (apb_addr, apb_state, pwrite) is
+  begin
+    frt_latch_h_r <= '0';
+    frt_latch_l_r <= '0';
+    latchx_r <= (others => '0');
+
+    if pwrite = '0' and apb_state = APB_ACCESS_ST then
+      case apb_addr is
+        when "0010" => frt_latch_l_r <= '1';
+        when "0011" => frt_latch_h_r <= '1';
+        when "1100" => latchx_r <= "0001";
+        when "1101" => latchx_r <= "0010";
+        when "1110" => latchx_r <= "0100";
+        when "1111" => latchx_r <= "1000";
+        when others => null;
+      end case;
+    end if;
+  end process;
+
   -- Write strobes
   process (apb_addr, apb_state, pwrite) is
   begin
     mctrl_w <= '0';
+    ack_w <= '0';
     d_w <= (others => '0');
 
     if pwrite = '1' and apb_state = APB_ACCESS_ST then
@@ -133,6 +173,7 @@ begin
         when "0101" => d_w(1) <= '1';
         when "0110" => d_w(2) <= '1';
         when "0111" => d_w(3) <= '1';
+        when "1000" => ack_w <= '1';
         when others => null;
       end case;
     end if;

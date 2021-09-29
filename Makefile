@@ -2,7 +2,8 @@ TARGET := ilt.vhd
 
 VHDL_FILES := ilt_pkg.vhd
 VHDL_FILES += ilt_apb.vhd ilt_register.vhd ilt_frt.vhd
-VHDL_FILES += ilt_latch.vhd
+VHDL_FILES += ilt_latch.vhd ilt_counter.vhd
+VHDL_FILES += ilt_delay_cnt.vhd ilt_latency_cnt.vhd
 VHDL_FILES += $(TARGET)
 
 RM  := rm -f

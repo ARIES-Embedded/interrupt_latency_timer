@@ -15,10 +15,9 @@ use work.ilt_pkg.all;
 
 entity ilt is
   generic (
-    PADDR_WIDTH : integer := 32;
-    PDATA_WIDTH : integer := 32;
-    CORE_ID : std_logic_vector(31 downto 0) := x"%GIT_ID%"
-  );
+    PADDR_WIDTH : integer := PADDR_WIDTH;
+    PDATA_WIDTH : integer := PDATA_WIDTH
+    );
   port (
     pclk    : in  std_logic;
     presetn : in  std_logic;
@@ -45,47 +44,59 @@ architecture struct of ilt is
   signal enable   : std_logic := '0';
 
   signal frt_latch : std_logic;
-  signal frt_latch_clear : std_logic;
-  signal frt_latch_l_valid, frt_latch_l_ovwr : std_logic;
-  signal frt_latch_h_valid, frt_latch_h_ovwr : std_logic;
+  signal frt_latch_l_clear, frt_latch_l_valid, frt_latch_l_ovwr  : std_logic;
+  signal frt_latch_h_clear, frt_latch_h_valid, frt_latch_h_ovwr  : std_logic;
   signal frt_cnt_l : std_logic_vector(PDATA_WIDTH-1 downto 0);
   signal frt_cnt_h : std_logic_vector(PDATA_WIDTH-1 downto 0);
   signal frt_latch_l : std_logic_vector(PDATA_WIDTH-1 downto 0);
   signal frt_latch_h : std_logic_vector(PDATA_WIDTH-1 downto 0);
 
-  signal r_d0 : std_logic_vector(PDATA_WIDTH-1 downto 0);
-  signal r_d1 : std_logic_vector(PDATA_WIDTH-1 downto 0);  -- RFU
-  signal r_d2 : std_logic_vector(PDATA_WIDTH-1 downto 0);  -- RFU
-  signal r_d3 : std_logic_vector(PDATA_WIDTH-1 downto 0);  -- RFU
+  signal ack_w : std_logic;
 
-  signal latch0 : std_logic_vector(PDATA_WIDTH-1 downto 0);
-  signal latch1 : std_logic_vector(PDATA_WIDTH-1 downto 0);
-  signal latch2 : std_logic_vector(PDATA_WIDTH-1 downto 0);
-  signal latch3 : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal frt_latch_l_r, frt_latch_h_r : std_logic;
 
+  signal d_w : std_logic_vector(3 downto 0);
+  signal r_d : reg_block_t(0 to 3);
+
+  signal latchx : reg_block_t(0 to 3);
+  signal l_clr  : std_logic_vector(3 downto 0);
+  signal l_latch: std_logic_vector(3 downto 0);
   signal l_busy : std_logic_vector(3 downto 0);
-  signal l_ovfl : std_logic_vector(3 downto 0);
+  signal l_ovwr : std_logic_vector(3 downto 0);
+  signal latch_status : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal latchx_r : std_logic_vector(3 downto 0);
 
   signal ack0_mcnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
   signal ack3_mcnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
 
-  type ilt_state_t is (ILT_IDLE_ST, ILT_DELAY_ST, ILT_ACTIVE_ST, ILT_ACK3_ST);
-  signal ilt_state : ilt_state_t := ILT_IDLE_ST;
-  signal ilt_next : ilt_state_t;
-
-  signal d_cnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
-  signal l_cnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
-
   signal nrst : std_logic;
 
+  signal d_start, d_run, d_done : std_logic;
+
+  signal l_run : std_logic;
+  signal l_cnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
+
+  signal irq_count : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal irq_count_clr : std_logic;
+
+  signal ack0_cnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal ack0_wait : std_logic := '0';
+  signal ack0_cnt_en, ack0_cnt_clr : std_logic;
+
+  signal ack3_cnt : std_logic_vector(PDATA_WIDTH-1 downto 0);
+  signal ack3_wait : std_logic := '0';
+  signal ack3_cnt_en, ack3_cnt_clr : std_logic;
+
+-------------------------------------------------------------------------------
 begin
-
+-------------------------------------------------------------------------------
   irq <= '0';
-  -- test_a <= '0';
-  -- test_b <= '0';
-  test_a <= gen_mode(0);
-  test_b <= gen_mode(1);
+  test_a <= d_done;
+  test_b <= l_run;
 
+  -----------------------------------------------------------------------------
+  -- APB interface
+  -----------------------------------------------------------------------------
   u0: component ilt_apb
     generic map (
       PADDR_WIDTH => PADDR_WIDTH,
@@ -102,18 +113,32 @@ begin
       prdata => prdata,
       pslverr => pslverr,
 
+      core_id => x"%GIT_ID%",
+
       mctrl_w => mctrl_w,
       mctrl_data =>mctrl_rd_data,
 
-      core_id => CORE_ID,
+      d_w => d_w,
+      d_data => r_d,
 
-      frt_latch_h => frt_latch_h,
       frt_latch_l => frt_latch_l,
+      frt_latch_h => frt_latch_h,
+      frt_latch_l_r => frt_latch_l_r,
+      frt_latch_h_r => frt_latch_h_r,
 
-      d_w => open,
-      d_data => (others => (others => '0'))
+      ack_w => ack_w,
+      latch_status => latch_status,
+      irq_count => irq_count,
+      ack0_miss => ack0_cnt,
+      ack3_miss => ack3_cnt,
+
+      latchx => latchx,
+      latchx_r => latchx_r
       );
 
+  -----------------------------------------------------------------------------
+  -- Master control register
+  -----------------------------------------------------------------------------
   u1: component ilt_register
     port map (
       clk  => pclk,
@@ -122,7 +147,7 @@ begin
       d    => pwdata,
       q    => mctrl_data);
 
-  enable <= mctrl_data(PDATA_WIDTH-1);
+  enable <= mctrl_data(mctrl_data'left);
   nrst <= presetn and enable;
 
   gen_mode <= mctrl_data(1 downto 0);
@@ -134,6 +159,11 @@ begin
                    "00000000" &
                    "000000" & gen_mode;
 
+  d_start <= pwdata(7) and mctrl_w;
+
+  -----------------------------------------------------------------------------
+  -- Free-running timer and its latch registers
+  -----------------------------------------------------------------------------
   u2: component ilt_frt
     port map (
       clk   => pclk,
@@ -141,14 +171,15 @@ begin
       cnt_h => frt_cnt_h,
       cnt_l => frt_cnt_l);
 
-  frt_latch       <= pwdata(24) and mctrl_w;
-  frt_latch_clear <= pwdata(25) and mctrl_w;
+  frt_latch <= pwdata(24) and mctrl_w;
+  frt_latch_l_clear <= frt_latch_l_r or (pwdata(25) and mctrl_w);
+  frt_latch_h_clear <= frt_latch_h_r or (pwdata(25) and mctrl_w);
 
   u3: component ilt_latch
     port map (
       clk   => pclk,
       nrst  => nrst,
-      clr   => frt_latch_clear,
+      clr   => frt_latch_h_clear,
       latch => frt_latch,
       d     => frt_cnt_h,
       q     => frt_latch_h,
@@ -159,11 +190,146 @@ begin
     port map (
       clk   => pclk,
       nrst  => nrst,
-      clr   => frt_latch_clear,
+      clr   => frt_latch_l_clear,
       latch => frt_latch,
       d     => frt_cnt_l,
       q     => frt_latch_l,
       valid => frt_latch_l_valid,
       ovwr  => frt_latch_l_ovwr);
+
+  -----------------------------------------------------------------------------
+  -- IRQ Generator parameter registers
+  -- 0 -- delay value (in 40us ticks, 1/25 MHz)
+  -- 1..3 -- RFU
+  -----------------------------------------------------------------------------
+  u50: for i in 0 to 3 generate
+    u5x: component ilt_register
+      port map(
+        clk  => pclk,
+        nrst => nrst,
+        wr   => d_w(i),
+        d    => pwdata,
+        q    => r_d(i));
+  end generate u50;
+
+  -----------------------------------------------------------------------------
+  -- IRQ generator delay counter
+  -----------------------------------------------------------------------------
+  u6: component ilt_delay_cnt
+    port map (
+      clk   => pclk,
+      nrst  => nrst,
+      mode  => gen_mode,
+      d     => r_d(0),
+      start => d_start,
+      ack0  => l_latch(0),
+      ack3  => l_latch(3),
+      run   => d_run,
+      done  => d_done);
+
+  -----------------------------------------------------------------------------
+  -- IRQ latency counter
+  -----------------------------------------------------------------------------
+  u7: component ilt_latency_cnt
+    port map (
+      clk   => pclk,
+      nrst  => nrst,
+      start => d_done,
+      stop  => l_latch(3),
+      run   => l_run,
+      q     => l_cnt);
+
+  -----------------------------------------------------------------------------
+  -- Latch registers for the Latency counter
+  -----------------------------------------------------------------------------
+  u80: for i in 0 to 3 generate
+
+    l_clr(i) <= latchx_r(i) or ((pwdata(31) or pwdata(4+i)) and ack_w);
+
+    u8x: component ilt_latch
+      port map (
+        clk   => pclk,
+        nrst  => nrst,
+        clr   => l_clr(i),
+        latch => l_latch(i),
+        d     => l_cnt,
+        q     => latchx(i),
+        valid => l_busy(i),
+        ovwr  => l_ovwr(i));
+  end generate u80;
+
+  -----------------------------------------------------------------------------
+  -- Total interrupt counter
+  -----------------------------------------------------------------------------
+
+  irq_count_clr <= (pwdata(31) or pwdata(8)) and ack_w;
+
+  u9: component ilt_counter
+    port map (
+      clk  => pclk,
+      nrst => nrst,
+      clr  => irq_count_clr,
+      en   => d_done,
+      q    => irq_count);
+
+  -----------------------------------------------------------------------------
+  -- Missed acknowledge counters
+  -----------------------------------------------------------------------------
+
+  process (pclk, nrst) is
+  begin
+    if nrst = '0' then
+      ack0_wait <= '0';
+    elsif rising_edge(pclk) then
+      if ack0_cnt_clr = '1' then
+        ack0_wait <= '0';
+      else
+        if d_done = '1' then
+          ack0_wait <= '1';
+        elsif l_latch(0) = '1' then
+          ack0_wait <= '0';
+        end if;
+      end if;
+    end if;
+  end process;
+
+  ack0_cnt_clr <= (pwdata(31) or pwdata(9)) and ack_w;
+  ack0_cnt_en <= ack0_wait and d_done;
+
+  u10: component ilt_counter
+    port map (
+      clk  => pclk,
+      nrst => nrst,
+      clr  => ack0_cnt_clr,
+      en   => ack0_cnt_en,
+      q    => ack0_cnt);
+
+  process (pclk, nrst) is
+  begin
+    if nrst = '0' then
+      ack3_wait <= '0';
+    elsif rising_edge(pclk) then
+      if ack3_cnt_clr = '1' then
+        ack3_wait <= '0';
+      else
+        if d_done = '1' then
+          ack3_wait <= '1';
+        elsif l_latch(3) = '1' then
+          ack3_wait <= '0';
+        end if;
+      end if;
+    end if;
+  end process;
+
+  ack3_cnt_clr <= (pwdata(31) or pwdata(10)) and ack_w;
+  ack3_cnt_en <= ack3_wait and d_done;
+
+  u11: component ilt_counter
+    port map (
+      clk  => pclk,
+      nrst => nrst,
+      clr  => ack3_cnt_clr,
+      en   => ack3_cnt_en,
+      q    => ack3_cnt);
 
 end architecture struct;

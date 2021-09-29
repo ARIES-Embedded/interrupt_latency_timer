@@ -30,10 +30,21 @@ package ilt_pkg is
       mctrl_data : in std_logic_vector(PDATA_WIDTH-1 downto 0);
 
       d_w    : out std_logic_vector(3 downto 0);
-      d_data : in  reg_block_t(3 downto 0);
+      d_data : in  reg_block_t(0 to 3);
 
       frt_latch_l : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
-      frt_latch_h : in  std_logic_vector(PDATA_WIDTH-1 downto 0)
+      frt_latch_h : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
+      frt_latch_l_r : out std_logic;
+      frt_latch_h_r : out std_logic;
+
+      ack_w        : out std_logic;
+      latch_status : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
+      irq_count    : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
+      ack0_miss    : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
+      ack3_miss    : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
+
+      latchx   : in  reg_block_t(0 to 3);
+      latchx_r : out std_logic_vector(3 downto 0)
       );
   end component ilt_apb;
 
@@ -66,5 +77,37 @@ package ilt_pkg is
       valid : out std_logic;
       ovwr  : out std_logic);
   end component ilt_latch;
+
+  component ilt_delay_cnt is
+    port (
+      clk  : in  std_logic;
+      nrst : in  std_logic;
+      mode : in  std_logic_vector(1 downto 0);
+      d    : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
+      start: in  std_logic;
+      ack0 : in  std_logic;
+      ack3 : in  std_logic;
+      run  : out std_logic;
+      done : out std_logic);
+  end component ilt_delay_cnt;
+
+  component ilt_latency_cnt is
+    port (
+      clk  : in  std_logic;
+      nrst : in  std_logic;
+      start: in  std_logic;
+      stop : in  std_logic;
+      run  : out std_logic;
+      q    : out std_logic_vector(PDATA_WIDTH-1 downto 0));
+  end component ilt_latency_cnt;
+
+  component ilt_counter is
+    port (
+      clk  : in  std_logic;
+      nrst : in  std_logic;
+      clr  : in  std_logic;
+      en   : in  std_logic;
+      q    : out std_logic_vector(PDATA_WIDTH-1 downto 0));
+  end component ilt_counter;
 
 end package ilt_pkg;
