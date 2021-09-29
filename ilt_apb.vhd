@@ -26,7 +26,7 @@ entity ilt_apb is
     mctrl_data : in std_logic_vector(PDATA_WIDTH-1 downto 0);
 
     d_w    : out std_logic_vector(3 downto 0);
-    d_data : in  reg_block_t(3 downto 0);
+    d_data : in  reg_block_t(0 to 3);
 
     frt_latch_l : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
     frt_latch_h : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
