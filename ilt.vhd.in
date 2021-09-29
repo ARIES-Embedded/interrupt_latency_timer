@@ -245,6 +245,7 @@ begin
   u80: for i in 0 to 3 generate
 
     l_clr(i) <= latchx_r(i) or ((pwdata(31) or pwdata(4+i)) and ack_w);
+    l_latch(i) <= pwdata(i) and ack_w;
 
     u8x: component ilt_latch
       port map (
@@ -257,6 +258,11 @@ begin
         valid => l_busy(i),
         ovwr  => l_ovwr(i));
   end generate u80;
+
+  latch_status <= "0000000" & ack0_wait &
+                  "0000000" & ack3_wait &
+                  "000000" & l_run & d_run &
+                  l_ovwr & l_busy;
 
   -----------------------------------------------------------------------------
   -- Total interrupt counter
