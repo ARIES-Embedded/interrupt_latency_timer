@@ -22,8 +22,8 @@ entity ilt_apb is
 
     core_id : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
 
-    mctrl_w    : out std_logic;
-    mctrl_data : in std_logic_vector(PDATA_WIDTH-1 downto 0);
+    mctrl_w : out std_logic;
+    mctrl_rd_data : in std_logic_vector(PDATA_WIDTH-1 downto 0);
 
     d_w    : out std_logic_vector(3 downto 0);
     d_data : in  reg_block_t(0 to 3);
@@ -116,7 +116,7 @@ begin
       if pwrite = '0' and apb_state = APB_SETUP_ST then
         case apb_addr is
           when "0000" => apb_rdata <= core_id;
-          when "0001" => apb_rdata <= mctrl_data;
+          when "0001" => apb_rdata <= mctrl_rd_data;
           when "0010" => apb_rdata <= frt_latch_l;
           when "0011" => apb_rdata <= frt_latch_h;
           when "0100" => apb_rdata <= d_data(0);

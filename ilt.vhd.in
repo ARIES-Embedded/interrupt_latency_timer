@@ -116,7 +116,7 @@ begin
       core_id => x"%GIT_ID%",
 
       mctrl_w => mctrl_w,
-      mctrl_data =>mctrl_rd_data,
+      mctrl_rd_data => mctrl_rd_data,
 
       d_w => d_w,
       d_data => r_d,

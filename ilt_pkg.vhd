@@ -26,8 +26,8 @@ package ilt_pkg is
 
       core_id : in  std_logic_vector(PDATA_WIDTH-1 downto 0);
 
-      mctrl_w    : out std_logic;
-      mctrl_data : in std_logic_vector(PDATA_WIDTH-1 downto 0);
+      mctrl_w : out std_logic;
+      mctrl_rd_data : in std_logic_vector(PDATA_WIDTH-1 downto 0);
 
       d_w    : out std_logic_vector(3 downto 0);
       d_data : in  reg_block_t(0 to 3);
