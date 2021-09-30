@@ -40,8 +40,8 @@ architecture struct of ilt is
   signal mctrl_data : std_logic_vector(PDATA_WIDTH-1 downto 0);
   signal mctrl_rd_data : std_logic_vector(PDATA_WIDTH-1 downto 0);
 
-  signal gen_mode : std_logic_vector(1 downto 0) := "00";
-  signal enable   : std_logic := '0';
+  signal gen_mode : std_logic_vector(1 downto 0);
+  signal enable   : std_logic;
 
   signal frt_latch : std_logic;
   signal frt_latch_l_clear, frt_latch_l_valid, frt_latch_l_ovwr  : std_logic;
