@@ -45,15 +45,32 @@ begin
 
     case cnt_state is
       when IDLE_ST =>
-        if mode = "00" then
-          cnt_next <= IDLE_ST;
-        elsif
-          (start = '1') or
-          (mode = "10" and ack0 = '1') or
-          (mode = "11" and ack3 = '1')
-        then
-          cnt_next <= LOAD_ST;
-        end if;
+        case mode is
+          when "00" => cnt_next <= IDLE_ST;
+
+          when "01" =>
+            if start = '1' then
+              cnt_next <= LOAD_ST;
+            else
+              cnt_next <= IDLE_ST;
+            end if;
+
+          when "10" =>
+            if start = '1' or ack0 = '1' then
+              cnt_next <= LOAD_ST;
+            else
+              cnt_next <= IDLE_ST;
+            end if;
+
+          when "11" =>
+            if start = '1' or ack3 = '1' then
+              cnt_next <= LOAD_ST;
+            else
+              cnt_next <= IDLE_ST;
+            end if;
+
+          when others => cnt_next <= IDLE_ST;
+        end case;
 
       when LOAD_ST =>
         cnt_next <= RUN_ST;
