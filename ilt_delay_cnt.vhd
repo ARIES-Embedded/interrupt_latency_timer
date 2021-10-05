@@ -105,7 +105,7 @@ begin
       cnt <= (others => '1');
     elsif rising_edge(clk) then
       if cnt_load = '1' then
-        cnt <= d;
+        cnt <= "0" & d(PDATA_WIDTH-2 downto 0);
       elsif cnt_en = '1' and cnt_msb = '0' then
         cnt <= std_logic_vector(unsigned(cnt) - 1);
       end if;
