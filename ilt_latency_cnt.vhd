@@ -42,7 +42,9 @@ begin
       if en = '0' then
         cnt <= (others => '0');
       else
-        cnt <= std_logic_vector(unsigned(cnt) + 1);
+        if not (cnt(PDATA_WIDTH-1 downto PDATA_WIDTH-4) = "1111") then
+          cnt <= std_logic_vector(unsigned(cnt) + 1);
+        end if;
       end if;
     end if;
   end process;
